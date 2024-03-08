@@ -3,20 +3,22 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/zema1/watchvuln/ctrl"
 	"os"
 	"os/signal"
 	"strings"
 	"time"
 
+	"github.com/zema1/watchvuln/ctrl"
+
 	"github.com/kataras/golog"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+
 	"github.com/zema1/watchvuln/push"
 )
 
 var log = golog.Child("[main]")
-var Version = "v1.4.2"
+var Version = "v1.6.0"
 
 func main() {
 	golog.Default.SetLevel("info")
@@ -60,7 +62,7 @@ func main() {
 		&cli.StringFlag{
 			Name:     "lark-access-token",
 			Aliases:  []string{"lt"},
-			Usage:    "webhook access token of lark",
+			Usage:    "webhook access token/url of lark",
 			Category: "[\x00Push Options]",
 		},
 		&cli.StringFlag{
@@ -88,6 +90,18 @@ func main() {
 			Category: "[\x00Push Options]",
 		},
 		&cli.StringFlag{
+			Name:     "telegram-bot-token",
+			Aliases:  []string{"tgtk"},
+			Usage:    "telegram bot token, ex: 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
+			Category: "[\x00Push Options]",
+		},
+		&cli.StringFlag{
+			Name:     "telegram-chat-ids",
+			Aliases:  []string{"tgids"},
+			Usage:    "chat ids want to send on telegram, ex: 123456,4312341,123123",
+			Category: "[\x00Push Options]",
+		},
+		&cli.StringFlag{
 			Name:     "db-conn",
 			Aliases:  []string{"db"},
 			Usage:    "database connection string",
@@ -98,7 +112,7 @@ func main() {
 			Name:     "sources",
 			Aliases:  []string{"s"},
 			Usage:    "set vuln sources",
-			Value:    "avd,nox,oscs,threatbook,seebug",
+			Value:    "avd,nox,oscs,threatbook,seebug,struts2",
 			Category: "[Launch Options]",
 		},
 		&cli.StringFlag{
@@ -106,6 +120,12 @@ func main() {
 			Aliases:  []string{"i"},
 			Usage:    "checking every [interval], supported format like 30s, 30m, 1h",
 			Value:    "30m",
+			Category: "[Launch Options]",
+		},
+		&cli.StringFlag{
+			Name:     "proxy",
+			Aliases:  []string{"x"},
+			Usage:    "set request proxy, support socks5://xxx or http(s)://",
 			Category: "[Launch Options]",
 		},
 		&cli.BoolFlag{
@@ -180,6 +200,7 @@ func Action(c *cli.Context) error {
 	debug := c.Bool("debug")
 	iv := c.String("interval")
 	db := c.String("db")
+	proxy := c.String("proxy")
 
 	if os.Getenv("INTERVAL") != "" {
 		iv = os.Getenv("INTERVAL")
@@ -198,6 +219,13 @@ func Action(c *cli.Context) error {
 	}
 	if os.Getenv("DB_CONN") != "" {
 		db = os.Getenv("DB_CONN")
+	}
+	if proxy != "" {
+		must(os.Setenv("HTTP_PROXY", proxy))
+		must(os.Setenv("HTTPS_PROXY", proxy))
+	}
+	if os.Getenv("HTTPS_PROXY") != "" {
+		must(os.Setenv("HTTP_PROXY", os.Getenv("HTTPS_PROXY")))
 	}
 
 	log.Infof("config: INTERVAL=%s, NO_FILTER=%v, NO_START_MESSAGE=%v, NO_GITHUB_SEARCH=%v, ENABLE_CVE_FILTER=%v",
@@ -241,6 +269,8 @@ func initPusher(c *cli.Context) (push.TextPusher, push.RawPusher, error) {
 	larkToken := c.String("lark-access-token")
 	larkSecret := c.String("lark-sign-secret")
 	serverChanKey := c.String("serverchan-key")
+	telegramBotTokey := c.String("telegram-bot-token")
+	telegramChatIDs := c.String("telegram-chat-ids")
 
 	if os.Getenv("DINGDING_ACCESS_TOKEN") != "" {
 		dingToken = os.Getenv("DINGDING_ACCESS_TOKEN")
@@ -266,6 +296,13 @@ func initPusher(c *cli.Context) (push.TextPusher, push.RawPusher, error) {
 	if os.Getenv("SERVERCHAN_KEY") != "" {
 		serverChanKey = os.Getenv("SERVERCHAN_KEY")
 	}
+	if os.Getenv("TELEGRAM_BOT_TOKEN") != "" {
+		telegramBotTokey = os.Getenv("TELEGRAM_BOT_TOKEN")
+	}
+	if os.Getenv("TELEGRAM_CHAT_IDS") != "" {
+		telegramChatIDs = os.Getenv("TELEGRAM_CHAT_IDS")
+	}
+
 	var textPusher []push.TextPusher
 	var rawPusher []push.RawPusher
 	if dingToken != "" && dingSecret != "" {
@@ -289,6 +326,13 @@ func initPusher(c *cli.Context) (push.TextPusher, push.RawPusher, error) {
 	if serverChanKey != "" {
 		textPusher = append(textPusher, push.NewServerChan(serverChanKey))
 	}
+	if telegramBotTokey != "" && telegramChatIDs != "" {
+		tgPusher, err := push.NewTelegram(telegramBotTokey, telegramChatIDs)
+		if err != nil {
+			return nil, nil, fmt.Errorf("init telegram error %w", err)
+		}
+		textPusher = append(textPusher, tgPusher)
+	}
 	if len(textPusher) == 0 && len(rawPusher) == 0 {
 		msg := `
 you must setup a pusher, eg: 
@@ -309,4 +353,10 @@ func signalCtx() (context.Context, func()) {
 		cancel()
 	}()
 	return ctx, cancel
+}
+
+func must(err error) {
+	if err != nil {
+		panic(err)
+	}
 }

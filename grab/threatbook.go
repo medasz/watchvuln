@@ -3,14 +3,14 @@ package grab
 import (
 	"bytes"
 	"context"
+	"regexp"
+	"strings"
+	"time"
+
 	"github.com/PuerkitoBio/goquery"
 	"github.com/imroc/req/v3"
 	"github.com/kataras/golog"
 	"github.com/mmcdole/gofeed"
-	"net/http/cookiejar"
-	"regexp"
-	"strings"
-	"time"
 )
 
 /*ThreatBook 微步漏洞情报
@@ -138,6 +138,7 @@ func (t *ThreatBookCrawler) GetUpdate(ctx context.Context, pageLimit int) ([]*Vu
 		}
 		results = append(results, vuln)
 	}
+	t.log.Infof("got %d vulns", len(results))
 
 	return results, nil
 }
@@ -170,12 +171,4 @@ func getTitleWithoutType(title string) string {
 	title = strings.TrimLeft(title, "|")
 	title = strings.TrimSpace(title)
 	return title
-}
-
-func (t *ThreatBookCrawler) newClient() *req.Client {
-	jar, _ := cookiejar.New(nil)
-	client := NewHttpClient().
-		SetCookieJar(jar).
-		SetCommonHeader("Referer", ThreatbookUrl)
-	return client
 }
