@@ -13,6 +13,7 @@
 | 奇安信威胁情报中心                  | https://ti.qianxin.com/                                                                         | 等级为高危严重**并且**包含 `奇安信CERT验证` `POC公开` `技术细节公布`标签之一 |
 | 微步在线研究响应中心(公众号)            | https://x.threatbook.com/v5/vulIntelligence                                                     | 等级为高危或严重                                         |
 | 知道创宇Seebug漏洞库              | https://www.seebug.org/                                                                         | 等级为高危或严重                                         |
+| CISA KEV                   | https://www.cisa.gov/known-exploited-vulnerabilities-catalog                                    | 全部推送                                             |
 | Struts2 Security Bulletins | [Struts2 Security Bulletins](https://cwiki.apache.org/confluence/display/WW/Security+Bulletins) | 等级为高危或严重                                         |
 
 > 所有信息来自网站公开页面, 如果有侵权，请提交 issue, 我会删除相关源。
@@ -37,6 +38,8 @@
 - [Server 酱](https://sct.ftqq.com/)
 - [自定义 Bark 服务](https://github.com/Finb/Bark)
 - [自定义 Webhook 服务](./examples/webhook)
+- [pushplus](https://pushplus.plus/)
+- [蓝信](https://developer.lanxin.cn/official/article?id=646ecae03d4e4adb7039c0e4&module=development-help&article_id=646f193b3d4e4adb7039c21c)
 
 ### 使用 Docker
 
@@ -53,6 +56,10 @@ Docker 方式推荐使用环境变量来配置服务参数
 | `SERVERCHAN_KEY `       | Server酱的 `SCKEY`                                                        |                                         |
 | `WEBHOOK_URL`           | 自定义 webhook 服务的完整 url                                                   |                                         |
 | `BARK_URL`              | Bark 服务的完整 url, 路径需要包含 DeviceKey                                        |                                         |
+| `PUSHPLUS_KEY`          | PushPlus的token                                                          |                                         |
+| `LANXIN_DOMAIN`         | 蓝信webhook机器人的域名                                                         |                                         |
+| `LANXIN_TOKEN`          | 蓝信webhook机器人的hook token                                                 |                                         |
+| `LANXIN_SECRET`         | 蓝信webhook机器人的签名                                                         |                                         |
 | `TELEGRAM_BOT_TOKEN`    | Telegram Bot Token                                                      |                                         |
 | `TELEGRAM_CHAT_IDS`     | Telegram Bot 需要发送给的 chat 列表，使用 `,` 分割                                   |                                         |
 | `SOURCES`               | 启用哪些漏洞信息源，逗号分隔, 可选 `avd`, `ti`, `oscs`, `seebug`,`threatbook`,`struts2` | `avd,ti,oscs,threatbook,seebug,struts2` |
@@ -98,6 +105,30 @@ docker run --restart always -d \
 ```bash
 docker run --restart always -d \
   -e WECHATWORK_KEY=xxxx \
+  -e INTERVAL=30m \
+  zemal/watchvuln:latest
+```
+
+</details>
+
+<details><summary>使用PushPlus</summary>
+
+```bash
+docker run --restart always -d \
+  -e PUSHPLUS_KEY=xxx \
+  -e INTERVAL=30m \
+  zemal/watchvuln:latest
+```
+
+</details>
+
+<details><summary>使用蓝信Webhook机器人</summary>
+
+```bash
+docker run --restart always -d \
+  -e LANXIN_DOMAIN=xxx \
+  -e LANXIN_TOKEN=xxx \
+  -e LANXIN_SECRET=xxx \
   -e INTERVAL=30m \
   zemal/watchvuln:latest
 ```
@@ -184,8 +215,12 @@ GLOBAL OPTIONS:
    --bark-url value, --bark value             your bark server url, ex: http://127.0.0.1:1111/DeviceKey
    --dingding-access-token value, --dt value  webhook access token of dingding bot
    --dingding-sign-secret value, --ds value   sign secret of dingding bot
-   --lark-access-token value, --lt value      webhook access token of lark
+   --lanxin-domain value, --lxd value         your lanxin server url, ex: https://apigw-example.domain
+   --lanxin-hook-token value, --lxt value     lanxin hook token
+   --lanxin-sign-secret value, --lxs value    sign secret of lanxin
+   --lark-access-token value, --lt value      webhook access token/url of lark
    --lark-sign-secret value, --ls value       sign secret of lark
+   --pushplus-key value, --pk value           send key for push plus
    --serverchan-key value, --sk value         send key for server chan
    --telegram-bot-token value, --tgtk value   telegram bot token, ex: 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
    --telegram-chat-ids value, --tgids value   chat ids want to send on telegram, ex: 123456,4312341,123123
@@ -220,7 +255,6 @@ $ ./watchvuln --dt DINGDING_ACCESS_TOKEN --ds DINGDING_SECRET -i 30m
 
 ```bash
 $ ./watchvuln --lt LARK_ACCESS_TOKEN --ls LARK_SECRET -i 30m
-
 ```
 
 </details>
@@ -237,6 +271,22 @@ $ ./watchvuln --wk WECHATWORK_KEY -i 30m
 
 ```
 $ ./watchvuln --sk xxxx -i 30m
+```
+
+</details>
+
+<details><summary>使用PushPlus</summary>
+
+```
+$ ./watchvuln --pk xxxx -i 30m
+```
+
+</details>
+
+<details><summary>使用蓝信Webhook机器人</summary>
+
+```
+$ ./watchvuln --lxd xxxx --lxt xxx --lxs xxx -i 30m
 ```
 
 </details>
